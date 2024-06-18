@@ -1,5 +1,7 @@
 from share import *
 
+import os
+
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader
@@ -7,18 +9,25 @@ from tutorial_dataset import MyDataset
 from cldm.logger import ImageLogger
 from cldm.model import create_model, load_state_dict
 
+from pytorch_lightning.loggers import WandbLogger
+import wandb
+
 
 # Configs
-model_name = 'control_toy_sd15_ini-epoch=0-step=7899'
+model_name = 'control_toy_sd15_step=12000'
 resume_path = './models/' + model_name + '.ckpt'
 batch_size = 4
 accumulate_grad_batches = 4
 logger_freq = 300
 learning_rate = 1e-5
-training_samples = 4000*4
+training_samples = 4000*4*2
 train_steps = training_samples / batch_size
 sd_locked = True
 only_mid_control = False
+
+
+# 初始化WandB
+wandb_logger = WandbLogger(project='Finetune ControlNet on toy dataset')
 
 
 # First use cpu to load models. Pytorch Lightning will automatically move it to GPUs.
@@ -32,7 +41,9 @@ model.only_mid_control = only_mid_control
 # Misc
 dataset = MyDataset()
 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=True)
-logger = ImageLogger(batch_frequency=logger_freq)
+
+root_dir = os.path.dirname(os.path.abspath(__file__))
+image_logger = ImageLogger(save_dir=root_dir, batch_frequency=logger_freq)
 
 
 # 自定义回调以确保在训练结束时保存模型
@@ -56,7 +67,8 @@ trainer = pl.Trainer(
             devices=[0], 
             accelerator='gpu', 
             precision=32, 
-            callbacks=[logger, checkpoint_callback, SaveCheckpointOnFinish()]
+            callbacks=[image_logger, checkpoint_callback, SaveCheckpointOnFinish()],
+            logger = wandb_logger
         )
 
 

@@ -9,10 +9,11 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 
 
 class ImageLogger(Callback):
-    def __init__(self, batch_frequency=2000, max_images=4, clamp=True, increase_log_steps=True,
+    def __init__(self, save_dir, batch_frequency=2000, max_images=4, clamp=True, increase_log_steps=True,
                  rescale=True, disabled=False, log_on_batch_idx=False, log_first_step=False,
                  log_images_kwargs=None):
         super().__init__()
+        self.save_dir = save_dir
         self.rescale = rescale
         self.batch_freq = batch_frequency
         self.max_images = max_images
@@ -25,8 +26,8 @@ class ImageLogger(Callback):
         self.log_first_step = log_first_step
 
     @rank_zero_only
-    def log_local(self, save_dir, split, images, global_step, current_epoch, batch_idx):
-        root = os.path.join(save_dir, "image_log", split)
+    def log_local(self, split, images, global_step, current_epoch, batch_idx):
+        root = os.path.join(self.save_dir, "image_log", split)
         for k in images:
             grid = torchvision.utils.make_grid(images[k], nrow=4)
             if self.rescale:
@@ -62,7 +63,7 @@ class ImageLogger(Callback):
                     if self.clamp:
                         images[k] = torch.clamp(images[k], -1., 1.)
 
-            self.log_local(pl_module.logger.save_dir, split, images,
+            self.log_local(split, images,
                            pl_module.global_step, pl_module.current_epoch, batch_idx)
 
             if is_train:
